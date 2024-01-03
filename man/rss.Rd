@@ -78,7 +78,7 @@ by the heuristics can be refined further using the mixed-integer solver. The tun
 that the solver operates on are specified by the \code{k.mio} and \code{h.mio} parameters,
 which must be subsets of \code{k} and \code{h}. \cr
 
-By default, the mixed-integer optimization problem is formulated with SOS constraints and
+By default, the mixed-integer optimisation problem is formulated with SOS constraints and
 bound constraints. The bound constraints are estimated as \eqn{\tau\|\hat{\beta}\|_\infty}, where
 \eqn{\hat{\beta}} is output from the heuristics. For finite values of \code{tau}, the
 mixed-integer solver automatically converts the SOS constraints to Big-M constraints, which are
@@ -107,9 +107,9 @@ plot(fit)
 
 }
 \references{
-Thompson, R. (2021). 'Robust subset selection'. arXiv:
-\href{https://arxiv.org/abs/2005.08217}{2005.08217}.
+Thompson, R. (2022). 'Robust subset selection'. Computational Statistics and Data
+Analysis 169, p. 107415.
 }
 \author{
-Ryan Thompson <ryan.thompson@monash.edu>
+Ryan Thompson <ryan.thompson1@unsw.edu.au>
 }

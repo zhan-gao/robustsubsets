@@ -63,4 +63,4 @@ coef(fit)
 
 ## Documentation
 
-See the package [reference manual](robustsubsets_1.1.1.pdf).
+See the package [reference manual](robustsubsets_1.1.3.pdf).

@@ -1,9 +1,9 @@
 Package: robustsubsets
 Type: Package
 Title: Robust Subset Selection
-Version: 1.1.2
+Version: 1.1.3
 Author: Ryan Thompson
-Maintainer: Ryan Thompson <ryan.thompson@monash.edu>
+Maintainer: Ryan Thompson <ryan.thompson1@unsw.edu.au>
 Description: Provides tools for sparse linear regression modelling with contaminated data. Combines 
     the least trimmed squares loss function with a constraint on the maximum number of nonzero 
     regression coefficients. Exact and heuristic computational algorithms are implemented.

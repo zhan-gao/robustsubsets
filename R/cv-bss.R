@@ -5,7 +5,7 @@
 
 #' @title Cross-validated best subset selection
 #'
-#' @author Ryan Thompson <ryan.thompson@monash.edu>
+#' @author Ryan Thompson <ryan.thompson1@unsw.edu.au>
 #'
 #' @description Fits a sequence of regression models using best subset selection and then
 #' cross-validates these models. This function is just a wrapper for the \code{cv.rss} function.

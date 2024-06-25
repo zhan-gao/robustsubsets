@@ -15,6 +15,8 @@
 #' to 20
 #' @param h the number of observations to minimise sum of squares over; by default a sequence from
 #' 75 to 100 percent of sample size (in increments of 5 percent)
+#' @param l_b local exactness level for active regressors
+#' @param l_a local exactness level for outliers
 #' @param k.mio the subset of \code{k} for which the mixed-integer solver should be run
 #' @param h.mio the subset of \code{h} for which the mixed-integer solver should be run
 #' @param params a list of parameters (settings) to pass to the mixed-integer solver (Gurobi)
@@ -63,7 +65,10 @@
 #' @export
 
 rss_ls <- \(x, y, k = 0:min(nrow(x) - 1, ncol(x), 20), h = round(seq(0.75, 1, 0.05) * nrow(x)),
-         k.mio = NULL, h.mio = NULL, params = list(TimeLimit = 60, OutputFlag = 0), tau = 1.5,
+         l_a, l_b,
+         k.mio = NULL, h.mio = NULL,
+         params = list(TimeLimit = 60, OutputFlag = 0, IntFeasTol = 1e-7, MIPGap = 0.001, NonConvex = 2, MIPFocus = 2),
+         tau = 1.5,
          warm.start = TRUE, robust = TRUE, max.ns.iter = 1e2, max.gd.iter = 1e5, eps = 1e-4) {
 
   # Check data is valid
@@ -108,7 +113,7 @@ rss_ls <- \(x, y, k = 0:min(nrow(x) - 1, ncol(x), 20), h = round(seq(0.75, 1, 0.
         if (k.mio[i] == 0) next
         k.ind <- which(k == k.mio[i])
         h.ind <- which(h == h.mio[j])
-        fit <- mio_ls(x, y, k.mio[i], h.mio[j], fits$beta[, k.ind, h.ind], fits$eta[, k.ind, h.ind],
+        fit <- mio_ls(x, y, k.mio[i], h.mio[j], l_b, l_a, fits$beta[, k.ind, h.ind], fits$eta[, k.ind, h.ind],
                    tau, params, warm.start)
         fits$beta[, k.ind, h.ind] <- fit$beta
         fits$eta[, k.ind, h.ind] <- fit$eta
@@ -172,8 +177,8 @@ mio_ls <- \(x, y, k, h, l_a, l_b, beta, eta, tau, params, warm.start) {
   form <- ifelse(ncol(x) <= nrow(x) & h == nrow(x), 1, 2)
 
   # read from prelim estimators beta, eta
-  z_hat <- as.integer(beta == 0)
-  s_hat <- as.integer(eta == 0)
+  s_hat <- as.integer(beta == 0)
+  z_hat <- as.integer(eta == 0)
 
   # Set bounds for variables
   Mb <- tau * max(abs(beta))
@@ -210,10 +215,10 @@ mio_ls <- \(x, y, k, h, l_a, l_b, beta, eta, tau, params, warm.start) {
       rbind(
         cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(1, 1, p), matrix(0, 1, n)), # C1
         cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(0, 1, p), matrix(1, 1, n)), # C2
-        cbind(matrix(0, 1, p), matrix(0, 1, n), as.matrix(s_hat, 1, p), matrix(0, 1, n)),
-        cbind(matrix(0, 1, p), matrix(0, 1, n), as.matrix(1 - s_hat, 1, p), matrix(0, 1, n)),
-        cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(0, 1, p), as.matrix(z_hat, 1, n)),
-        cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(0, 1, p), as.matrix(1 - z_hat, 1, n))
+        cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(s_hat, 1, p), matrix(0, 1, n)),
+        cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(1 - s_hat, 1, p), matrix(0, 1, n)),
+        cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(0, 1, p), matrix(z_hat, 1, n)),
+        cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(0, 1, p), matrix(1 - z_hat, 1, n))
       )
     model$sense <- c('>=', '>=', '>=', '<=', '>=', '<=') # Constraint types
     model$rhs <- c(p - k, h, p - k - l_b, l_b, h - l_a, l_a) # RHS of constraints
@@ -254,11 +259,11 @@ mio_ls <- \(x, y, k, h, l_a, l_b, beta, eta, tau, params, warm.start) {
       rbind(
         cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(1, 1, p), matrix(0, 1, n), matrix(0, 1, n)), # C1
         cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(0, 1, p), matrix(1, 1, n), matrix(0, 1, n)), # C2
-        cbind(w, matrix(0, n, p), matrix(0, n, n), - diag(n)) # C3
-        cbind(matrix(0, 1, p), matrix(0, 1, n), as.matrix(s_hat, 1, p), matrix(0, 1, n)),
-        cbind(matrix(0, 1, p), matrix(0, 1, n), as.matrix(1 - s_hat, 1, p), matrix(0, 1, n)),
-        cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(0, 1, p), as.matrix(z_hat, 1, n)),
-        cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(0, 1, p), as.matrix(1 - z_hat, 1, n))
+        cbind(w, matrix(0, n, p), matrix(0, n, n), - diag(n)), # C3
+        cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(s_hat, 1, p), matrix(0, 1, n), matrix(0, 1, n)),
+        cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(1 - s_hat, 1, p), matrix(0, 1, n), matrix(0, 1, n)),
+        cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(0, 1, p), matrix(z_hat, 1, n), matrix(0, 1, n)),
+        cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(0, 1, p), matrix(1 - z_hat, 1, n), matrix(0, 1, n))
       )
     model$sense <- c('>=', '>=', rep('=', n),  '>=', '<=', '>=', '<=') # Constraint types
     model$rhs <- c(p - k, h, rep(0, n), p - k - l_b, l_b, h - l_a, l_a) # RHS of constraints

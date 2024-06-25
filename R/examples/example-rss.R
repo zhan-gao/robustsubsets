@@ -10,6 +10,7 @@ e <- rnorm(n, c(rep(10, ncontam), rep(0, n - ncontam)))
 y <- x %*% beta + e
 
 # Robust subset selection
+heuristics_ns(x, y, k = p0, h = n - ncontam)
 fit <- rss(x, y, k.mio = p0, h.mio = n - ncontam)
 
 # Extract model coefficients, generate predictions, and plot cross-validation results

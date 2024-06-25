@@ -19,6 +19,6 @@
 #'
 #' @export
 
-heuristics_ns <- function(x, y, k, h, max_ns_iter, max_gd_iter, eps) {
+heuristics_ns <- function(x, y, k, h, max_ns_iter=1e2, max_gd_iter=1e5, eps=1e-4) {
     .Call(`_robustsubsets_ns`, x, y, k, h, max_ns_iter, max_gd_iter, eps)
 }

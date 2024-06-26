@@ -11,10 +11,13 @@ rss(
   h = round(seq(0.75, 1, 0.05) * nrow(x)),
   k.mio = NULL,
   h.mio = NULL,
-  params = list(TimeLimit = 60, OutputFlag = 0),
+  l_b = NULL,
+  l_a = NULL,
+  params = list(TimeLimit = 60, OutputFlag = 0, IntFeasTol = 1e-07, MIPGap = 0.001,
+    NonConvex = 2, MIPFocus = 2),
   tau = 1.5,
   warm.start = TRUE,
-  robust = TRUE,
+  robust = FALSE,
   max.ns.iter = 100,
   max.gd.iter = 1e+05,
   eps = 1e-04
@@ -34,6 +37,10 @@ to 20}
 \item{k.mio}{the subset of \code{k} for which the mixed-integer solver should be run}
 
 \item{h.mio}{the subset of \code{h} for which the mixed-integer solver should be run}
+
+\item{l_b}{local exactness level for active regressors}
+
+\item{l_a}{local exactness level for outliers}
 
 \item{params}{a list of parameters (settings) to pass to the mixed-integer solver (Gurobi)}
 
@@ -97,14 +104,17 @@ e <- rnorm(n, c(rep(10, ncontam), rep(0, n - ncontam)))
 y <- x \%*\% beta + e
 
 # Robust subset selection
-fit <- rss(x, y, k.mio = p0, h.mio = n - ncontam)
+ns_fit = heuristics_ns(x, y, k = p0, h = n - ncontam)
+
+
+ns_res <- rss(x, y, k = p0, h = n - ncontam)
+mio_res <- rss(x, y, k = p0, h = n - ncontam, k.mio = p0, h.mio = n - ncontam)
+ls_res <- rss(x, y, k = p0, h = n - ncontam, k.mio = p0, h.mio = n - ncontam, l_b = 2, l_a = 2)
 
 # Extract model coefficients, generate predictions, and plot cross-validation results
 coef(fit, k = p0, h = n - ncontam)
 predict(fit, x[1:3, ], k = p0, h = n - ncontam)
 plot(fit)
-
-
 }
 \references{
 Thompson, R. (2022). 'Robust subset selection'. Computational Statistics and Data

@@ -16,6 +16,8 @@
 #' 75 to 100 percent of sample size (in increments of 5 percent)
 #' @param k.mio the subset of \code{k} for which the mixed-integer solver should be run
 #' @param h.mio the subset of \code{h} for which the mixed-integer solver should be run
+#' @param l_b local exactness level for active regressors
+#' @param l_a local exactness level for outliers
 #' @param params a list of parameters (settings) to pass to the mixed-integer solver (Gurobi)
 #' @param tau a positive number greater than or equal to 1 used to tighten coefficient bounds in the
 #' mixed-integer solver; small values give quicker run times but can also exclude the optimal
@@ -62,8 +64,11 @@
 #' @export
 
 rss <- \(x, y, k = 0:min(nrow(x) - 1, ncol(x), 20), h = round(seq(0.75, 1, 0.05) * nrow(x)),
-         k.mio = NULL, h.mio = NULL, params = list(TimeLimit = 60, OutputFlag = 0), tau = 1.5,
-         warm.start = TRUE, robust = TRUE, max.ns.iter = 1e2, max.gd.iter = 1e5, eps = 1e-4) {
+         k.mio = NULL, h.mio = NULL,
+         l_b = NULL, l_a = NULL,
+         params = list(TimeLimit = 60, OutputFlag = 0, IntFeasTol = 1e-7, MIPGap = 0.001, NonConvex = 2, MIPFocus = 2),
+         tau = 1.5,
+         warm.start = TRUE, robust = FALSE, max.ns.iter = 1e2, max.gd.iter = 1e5, eps = 1e-4) {
 
   # Check data is valid
   if (!is.matrix(x)) x <- as.matrix(x)
@@ -74,6 +79,13 @@ rss <- \(x, y, k = 0:min(nrow(x) - 1, ncol(x), 20), h = round(seq(0.75, 1, 0.05)
   # Check arguments
   if (!is.null(k.mio)) if (!all(k.mio %in% k)) stop('k.mio not a subset of k')
   if (!is.null(h.mio)) if (!all(h.mio %in% h)) stop('h.mio not a subset of h')
+  if (!is.null(l_a) & !is.null(l_b)) {
+    if((l_a == 0) & (l_b == 0)) {
+      warning('l_a and l_b are both zero; no mio will be implemented.')
+      k.mio = NULL
+      h.mio = NULL
+    }
+  }
 
   # Preliminaries
   n <- nrow(x)
@@ -107,7 +119,7 @@ rss <- \(x, y, k = 0:min(nrow(x) - 1, ncol(x), 20), h = round(seq(0.75, 1, 0.05)
         if (k.mio[i] == 0) next
         k.ind <- which(k == k.mio[i])
         h.ind <- which(h == h.mio[j])
-        fit <- mio(x, y, k.mio[i], h.mio[j], fits$beta[, k.ind, h.ind], fits$eta[, k.ind, h.ind],
+        fit <- mio(x, y, k.mio[i], h.mio[j], l_b, l_a, fits$beta[, k.ind, h.ind], fits$eta[, k.ind, h.ind],
                    tau, params, warm.start)
         fits$beta[, k.ind, h.ind] <- fit$beta
         fits$eta[, k.ind, h.ind] <- fit$eta
@@ -119,7 +131,7 @@ rss <- \(x, y, k = 0:min(nrow(x) - 1, ncol(x), 20), h = round(seq(0.75, 1, 0.05)
 
   # Refit the models on the original (unscaled) data
   fits.final <- list(beta = array(dim = c(p + 1, nk, nh)), weights = array(dim = c(n, nk, nh)),
-                     objval = array(dim = c(nk, nh)), mipgap = fits$mipgap, k = k, h = h)
+                     objval = array(dim = c(nk, nh)), mipgap = fits$mipgap, k = k, h = h, eta = array(dim = c(n, nk, nh)))
   colnames(fits.final$objval) <- colnames(fits.final$mipgap) <-
     dimnames(fits.final$beta)[[3]] <- dimnames(fits.final$weights)[[3]] <- h
   rownames(fits.final$objval) <- rownames(fits.final$mipgap) <-
@@ -147,6 +159,7 @@ rss <- \(x, y, k = 0:min(nrow(x) - 1, ncol(x), 20), h = round(seq(0.75, 1, 0.05)
       fits.final$beta[, i, j] <- beta
       fits.final$weights[, i, j] <- as.integer(eta == 0)
       fits.final$objval[i, j] <- objval
+      fits.final$eta[, i, j] <- eta
     }
   }
 
@@ -162,13 +175,18 @@ rss <- \(x, y, k = 0:min(nrow(x) - 1, ncol(x), 20), h = round(seq(0.75, 1, 0.05)
 # to global optimality.
 #==================================================================================================#
 
-mio <- \(x, y, k, h, beta, eta, tau, params, warm.start) {
+
+mio <- \(x, y, k, h, l_b, l_a, beta, eta, tau, params, warm.start) {
 
   # Preliminaries
   n <- nrow(x)
   p <- ncol(x)
   w <- cbind(x, diag(1, n))
   form <- ifelse(ncol(x) <= nrow(x) & h == nrow(x), 1, 2)
+
+  # read from prelim estimators beta, eta
+  s_hat <- as.integer(beta == 0)
+  z_hat <- as.integer(eta == 0)
 
   # Set bounds for variables
   Mb <- tau * max(abs(beta))
@@ -186,6 +204,10 @@ mio <- \(x, y, k, h, beta, eta, tau, params, warm.start) {
   # Constraints
   # C1: sum(s) >= p - k <==> ||beta||_0 <= k
   # C2:     sum(z) >= h <==> ||eta||_0 <= n - h
+  # C3: sum(s * s_hat) >= p - k - l_b
+  # C4: sum(s * (1 - s_hat)) <= l_b
+  # C5: sum(z * z_hat) >= h - l_a
+  # C6: sum(z * (1 - z_hat) <= l_a)
   # NOTE: Gurobi will transform SOS constraints to Big-M
   # constraints when coef bounds are finite
   # -------------------------------------------------------------
@@ -197,6 +219,8 @@ mio <- \(x, y, k, h, beta, eta, tau, params, warm.start) {
     ) # matrix Q in objective function
     model$obj <- c(- t(w) %*% y, rep(0, p + n)) # Vector c in objective function
     model$objcon <- 0.5 * t(y) %*% y # Constant a in objective function
+
+
     model$A <- # LHS of constraints
       rbind(
         cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(1, 1, p), matrix(0, 1, n)), # C1
@@ -204,6 +228,25 @@ mio <- \(x, y, k, h, beta, eta, tau, params, warm.start) {
       )
     model$sense <- c('>=', '>=') # Constraint types
     model$rhs <- c(p - k, h) # RHS of constraints
+
+    if(!is.null(l_b)) {
+      model$A <- rbind(
+        model$A,
+        cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(s_hat, 1, p), matrix(0, 1, n)),
+        cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(1 - s_hat, 1, p), matrix(0, 1, n))
+      )
+      model$sense <- c(model$sense, '>=', '<=')
+      model$rhs <- c(model$rhs, p - k - l_b, l_b)
+    }
+    if(!is.null(l_a)) {
+      model$A <- rbind(
+          model$A,
+          cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(0, 1, p), matrix(z_hat, 1, n)),
+          cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(0, 1, p), matrix(1 - z_hat, 1, n))
+        )
+      model$sense <- c(model$sense, '>=', '<=') # Constraint types
+      model$rhs <- c(model$rhs, h - l_a, l_a) # RHS of constraints
+    }
     model$lb <- c(rep(- Mb, p), rep(- Me, n), rep(0, p + n)) # Lower bound on variables
     model$ub <- c(rep(Mb, p), rep(Me, n), rep(1, p + n)) # Upper bound on variables
     model$sos <- vector('list', p + n)
@@ -244,6 +287,26 @@ mio <- \(x, y, k, h, beta, eta, tau, params, warm.start) {
       )
     model$sense <- c('>=', '>=', rep('=', n)) # Constraint types
     model$rhs <- c(p - k, h, rep(0, n)) # RHS of constraints
+
+    if(!is.null(l_b)) {
+      model$A <- rbind(
+        model$A,
+        cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(s_hat, 1, p), matrix(0, 1, n), matrix(0, 1, n)),
+        cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(1 - s_hat, 1, p), matrix(0, 1, n), matrix(0, 1, n))
+      )
+      model$sense <- c(model$sense, '>=', '<=')
+      model$rhs <- c(model$rhs, p - k - l_b, l_b)
+    }
+    if(!is.null(l_a)) {
+      model$A <- rbind(
+          model$A,
+          cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(0, 1, p), matrix(z_hat, 1, n), matrix(0, 1, n)),
+          cbind(matrix(0, 1, p), matrix(0, 1, n), matrix(0, 1, p), matrix(1 - z_hat, 1, n), matrix(0, 1, n))
+        )
+      model$sense <- c(model$sense, '>=', '<=') # Constraint types
+      model$rhs <- c(model$rhs, h - l_a, l_a) # RHS of constraints
+    }
+
     model$lb <- c(rep(- Mb, p), rep(- Me, n), rep(0, p + n), rep(- Mx, n)) # Lower bound on coefs
     model$ub <- c(rep(Mb, p), rep(Me, n), rep(1, p + n), rep(Mx, n)) # Upper bound on coefs
     model$sos <- vector('list', p + n)

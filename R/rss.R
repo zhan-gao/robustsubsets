@@ -29,6 +29,7 @@
 #' @param max.gd.iter the maximum number of gradient descent iterations allowed per value of
 #' \code{k} and \code{h}
 #' @param eps a numerical tolerance parameter used to declare convergence
+#' @param ic_select whether use information criteria to inform the best model
 #'
 #' @return An object of class \code{rss}; a list with the following components:
 #' \item{beta}{an array of estimated regression coefficients; columns correspond to \code{k} and
@@ -68,7 +69,7 @@ rss <- \(x, y, k = 0:min(nrow(x) - 1, ncol(x), 20), h = round(seq(0.75, 1, 0.05)
          l_b = NULL, l_a = NULL,
          params = list(TimeLimit = 60, OutputFlag = 0, IntFeasTol = 1e-7, MIPGap = 0.001, NonConvex = 2, MIPFocus = 2),
          tau = 1.5,
-         warm.start = TRUE, robust = FALSE, max.ns.iter = 1e2, max.gd.iter = 1e5, eps = 1e-4) {
+         warm.start = TRUE, robust = FALSE, max.ns.iter = 1e2, max.gd.iter = 1e5, eps = 1e-4, ic_select = TRUE) {
 
   # Check data is valid
   if (!is.matrix(x)) x <- as.matrix(x)
@@ -165,6 +166,12 @@ rss <- \(x, y, k = 0:min(nrow(x) - 1, ncol(x), 20), h = round(seq(0.75, 1, 0.05)
 
   # Return fit
   class(fits.final) <- 'rss'
+
+  if (ic_select == TRUE) {
+    ic_out = ic_rss(fits.final)
+    fits.final <- c(fits.final, ic_out)
+  }
+
   return(fits.final)
 
 }

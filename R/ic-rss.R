@@ -16,7 +16,7 @@ ic_rss <- function(rss_obj) {
    nk <- length(k)
 
    # degree of freedom
-   df_mat <- (k %*% t(rep(1, nh))) + (rep(1, nk) %*% t(as.matrix(n - h)))
+   df_mat <- (k %*% t(rep(1, nh))) + (rep(1, nk) %*% t(as.matrix(n - h))) + 1 # intercept
    # information criteria
    ic_mat <- n * log(rss_obj$objval / n) + df_mat * log(n)
    pos <- which(ic_mat == min(ic_mat), arr.ind = TRUE)

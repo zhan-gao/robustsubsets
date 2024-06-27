@@ -20,7 +20,8 @@ rss(
   robust = FALSE,
   max.ns.iter = 100,
   max.gd.iter = 1e+05,
-  eps = 1e-04
+  eps = 1e-04,
+  ic_select = TRUE
 )
 }
 \arguments{
@@ -59,6 +60,8 @@ solution; can be \code{Inf}}
 \code{k} and \code{h}}
 
 \item{eps}{a numerical tolerance parameter used to declare convergence}
+
+\item{ic_select}{whether use information criteria to inform the best model}
 }
 \value{
 An object of class \code{rss}; a list with the following components:

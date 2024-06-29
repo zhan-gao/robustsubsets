@@ -13,7 +13,7 @@ rss(
   h.mio = NULL,
   l_b = NULL,
   l_a = NULL,
-  params = list(TimeLimit = 60, OutputFlag = 0, IntFeasTol = 1e-07, MIPGap = 0.001,
+  params = list(TimeLimit = 300, OutputFlag = 0, IntFeasTol = 1e-07, MIPGap = 0.001,
     NonConvex = 2, MIPFocus = 2),
   tau = 1.5,
   warm.start = TRUE,
@@ -64,18 +64,7 @@ solution; can be \code{Inf}}
 \item{ic_select}{whether use information criteria to inform the best model}
 }
 \value{
-An object of class \code{rss}; a list with the following components:
-\item{beta}{an array of estimated regression coefficients; columns correspond to \code{k} and
-matrices to \code{h}}
-\item{weights}{an array of binary weights; weights equal to one correspond to good observations
-selected for inclusion in the least squares fit; columns correspond to \code{k} and matrices to
-\code{h}}
-\item{objval}{a matrix with the objective function values; rows correspond to \code{k} and
-columns to \code{h}}
-\item{mipgap}{a matrix with the optimality gap values; rows correspond to \code{k} and columns
-to \code{h}}
-\item{k}{a vector containing the values of \code{k} used in the fit}
-\item{h}{a vector containing the values of \code{h} used in the fit}
+
 }
 \description{
 Fits a sequence of regression models using robust subset selection.

@@ -43,8 +43,14 @@ rlasso <- function(x, y, huber_thres = NULL, var_sel_lasso_lambda = NULL, ic_sel
         for (i in seq_along(huber_thres)) {
             thres <- huber_thres[i]
             huber_fit <- huber_reg(x, y, huber_thres = thres, var_sel_lasso_lambda = var_sel_lasso_lambda)
-            objval <- colSums((y - cbind(1, x) %*% huber_fit$b - huber_fit$a)^2) / 2
-            df_vec <- colSums(huber_fit$b != 0) + colSums(huber_fit$a != 0) + 1
+
+            if (is.vector(huber_fit$b)) {
+                objval <- sum((y - cbind(1, x) %*% huber_fit$b - huber_fit$a)^2) / 2
+                df_vec <- sum(huber_fit$b != 0) + sum(huber_fit$a != 0) + 1
+            } else {
+                objval <- colSums((y - cbind(1, x) %*% huber_fit$b - huber_fit$a)^2) / 2
+                df_vec <- colSums(huber_fit$b != 0) + colSums(huber_fit$a != 0) + 1
+            }
             ic_value <- n * log(objval / n) + (df_vec) * log(n)
 
             ic_mat[, i] <- ic_value
@@ -221,6 +227,7 @@ get_lambda_seq <- function(x, y, scalex = TRUE, nlambda = 100, lambda_min_ratio 
 #' @return estimated coefficient
 #'
 #' @import hqreg
+#'
 #' @export
 #'
 lad_reg <- function(x, y, intercept = TRUE, tau = 0.5, lambda = 0) {
@@ -249,7 +256,7 @@ lad_reg <- function(x, y, intercept = TRUE, tau = 0.5, lambda = 0) {
                                     y,
                                     method = "quantile",
                                     tau = tau,
-                                    lambda = lambda_hat)
+                                    lambda = lambda)
             b_hat <- lad_fit$beta
         }
     } else {

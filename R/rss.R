@@ -43,6 +43,8 @@
 #' to \code{h}}
 #' \item{k}{a vector containing the values of \code{k} used in the fit}
 #' \item{h}{a vector containing the values of \code{h} used in the fit}
+#' \item{k_hat}{the \code{k} that minimises the information criteria
+#' \item{h_hat}{the \code{h} that minimises the information criteria}
 #'
 #' @details The function first computes solutions over all combinations of \code{k} and \code{h}
 #' using heuristics. The heuristics include projected block-coordinate gradient descent and
@@ -67,7 +69,7 @@
 rss <- \(x, y, k = 0:min(nrow(x) - 1, ncol(x), 20), h = round(seq(0.75, 1, 0.05) * nrow(x)),
          k.mio = NULL, h.mio = NULL,
          l_b = NULL, l_a = NULL,
-         params = list(TimeLimit = 60, OutputFlag = 0, IntFeasTol = 1e-7, MIPGap = 0.001, NonConvex = 2, MIPFocus = 2),
+         params = list(TimeLimit = 300, OutputFlag = 0, IntFeasTol = 1e-7, MIPGap = 0.001, NonConvex = 2, MIPFocus = 2),
          tau = 1.5,
          warm.start = TRUE, robust = FALSE, max.ns.iter = 1e2, max.gd.iter = 1e5, eps = 1e-4, ic_select = TRUE) {
 
@@ -361,8 +363,8 @@ ic_rss <- function(rss_obj) {
    k_out <- k[pos[1]]
    h_out <- h[pos[2]]
    return(
-       list(k = k_out,
-            h = h_out)
+       list(k_hat = k_out,
+            h_hat = h_out)
    )
 }
 
